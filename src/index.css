@@ -1,0 +1,30 @@
+:root {
+  --bg-primary: #0f0f12;
+  --bg-secondary: #18181d;
+  --bg-tertiary: #222228;
+  --accent: #00d4aa;
+  --accent-dim: #00a88a;
+  --text-primary: #e8e8ed;
+  --text-secondary: #9a9aa8;
+  --border: #2a2a32;
+  --error: #ff6b6b;
+  --success: #51cf66;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  min-height: 100vh;
+  line-height: 1.6;
+}
+
+#root {
+  min-height: 100vh;
+}
