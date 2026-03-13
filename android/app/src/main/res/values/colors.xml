@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="colorPrimary">#0C7EEB</color>
+    <color name="colorPrimaryDark">#075AAF</color>
+    <color name="colorAccent">#22C55E</color>
+
+    <color name="bgTop">#0E1529</color>
+    <color name="bgBottom">#121212</color>
+    <color name="cardBg">#1B2337</color>
+    <color name="cardStroke">#2A3553</color>
+    <color name="inputBg">#121A2D</color>
+    <color name="textPrimary">#F4F7FF</color>
+    <color name="textSecondary">#9AA8C7</color>
+    <color name="accent">#0C7EEB</color>
+    <color name="accentSecondary">#2B3A5F</color>
+    <color name="success">#4ADE80</color>
+</resources>
