@@ -4,20 +4,27 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
+import android.text.format.Formatter
 import android.provider.MediaStore
 import android.provider.OpenableColumns
 import android.view.View
+import android.view.ViewGroup
 import android.widget.Button
 import android.widget.EditText
-import android.widget.ProgressBar
+import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.TextView
+import android.widget.ProgressBar
 import android.widget.Toast
+import android.app.Dialog
+import android.media.MediaMetadataRetriever
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.arthenica.ffmpegkit.FFmpegKit
 import com.arthenica.ffmpegkit.ReturnCode
+import com.bumptech.glide.Glide
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -27,6 +34,8 @@ class MainActivity : AppCompatActivity() {
     private var selectedGifUri: Uri? = null
 
     private lateinit var selectedFileText: TextView
+    private lateinit var gifPreview: ImageView
+    private lateinit var gifMetaText: TextView
     private lateinit var statusText: TextView
     private lateinit var fpsInput: EditText
     private lateinit var batchFpsInput: EditText
@@ -38,7 +47,10 @@ class MainActivity : AppCompatActivity() {
     private val pickGifLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) {
             selectedGifUri = uri
+            loadGifPreview(uri)
+            gifPreview.setOnClickListener { showFullScreenPreview(uri) }
             selectedFileText.text = "已选择: ${getDisplayName(uri)}"
+            gifMetaText.text = buildGifMeta(uri)
             statusText.text = ""
         }
     }
@@ -48,6 +60,8 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         selectedFileText = findViewById(R.id.selectedFileText)
+        gifPreview = findViewById(R.id.gifPreview)
+        gifMetaText = findViewById(R.id.gifMetaText)
         statusText = findViewById(R.id.statusText)
         fpsInput = findViewById(R.id.fpsInput)
         batchFpsInput = findViewById(R.id.batchFpsInput)
@@ -55,10 +69,82 @@ class MainActivity : AppCompatActivity() {
         convertButton = findViewById(R.id.convertButton)
         batchConvertButton = findViewById(R.id.batchConvertButton)
         progressBar = findViewById(R.id.progressBar)
+        gifPreview.setImageResource(android.R.drawable.ic_menu_gallery)
 
         pickButton.setOnClickListener { pickGifLauncher.launch("image/gif") }
         convertButton.setOnClickListener { convertGif() }
         batchConvertButton.setOnClickListener { convertGifBatch() }
+    }
+
+    private fun loadGifPreview(uri: Uri) {
+        Glide.with(this)
+            .load(uri)
+            .placeholder(android.R.drawable.ic_menu_gallery)
+            .error(android.R.drawable.ic_delete)
+            .into(gifPreview)
+    }
+
+    private fun showFullScreenPreview(uri: Uri) {
+        val dialog = Dialog(this, android.R.style.Theme_Black_NoTitleBar_Fullscreen)
+        val root = FrameLayout(this).apply {
+            setBackgroundColor(0xFF000000.toInt())
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+        }
+        val image = ImageView(this).apply {
+            layoutParams = FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            setOnClickListener { dialog.dismiss() }
+        }
+        Glide.with(this).load(uri).into(image)
+        root.addView(image)
+        dialog.setContentView(root)
+        dialog.show()
+    }
+
+    private fun buildGifMeta(uri: Uri): String {
+        val (width, height) = readGifDimension(uri)
+        val durationMs = readGifDurationMs(uri)
+        val sizeText = Formatter.formatShortFileSize(this, readFileSize(uri))
+        val resolutionText = if (width > 0 && height > 0) "${width}x${height}" else "-"
+        val durationText = if (durationMs > 0) String.format("%.2fs", durationMs / 1000f) else "-"
+        return "分辨率: $resolutionText · 时长: $durationText · 大小: $sizeText"
+    }
+
+    private fun readGifDimension(uri: Uri): Pair<Int, Int> {
+        return runCatching {
+            val options = android.graphics.BitmapFactory.Options().apply {
+                inJustDecodeBounds = true
+            }
+            contentResolver.openInputStream(uri)?.use {
+                android.graphics.BitmapFactory.decodeStream(it, null, options)
+            }
+            Pair(options.outWidth, options.outHeight)
+        }.getOrElse { Pair(0, 0) }
+    }
+
+    private fun readGifDurationMs(uri: Uri): Long {
+        return runCatching {
+            val retriever = MediaMetadataRetriever()
+            retriever.setDataSource(this, uri)
+            val v = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
+            retriever.release()
+            v
+        }.getOrElse { 0L }
+    }
+
+    private fun readFileSize(uri: Uri): Long {
+        return runCatching {
+            contentResolver.query(uri, null, null, null, null)?.use { c ->
+                val index = c.getColumnIndex(OpenableColumns.SIZE)
+                if (index >= 0 && c.moveToFirst()) c.getLong(index) else 0L
+            } ?: 0L
+        }.getOrElse { 0L }
     }
 
     private fun convertGif() {
